@@ -1,0 +1,42 @@
+import { createHmac } from 'node:crypto';
+import { safeEqual } from '../../../lib/crypto.js';
+import type { VerifyInput, VerifyResult } from './index.js';
+
+export function verify(input: VerifyInput): VerifyResult {
+  const signature = getHeaderValue(input.headers, 'x-shopify-hmac-sha256');
+  if (!signature) {
+    return { ok: false, reason: 'missing_signature' };
+  }
+
+  if (input.secret.length === 0) {
+    return { ok: false, reason: 'invalid_secret' };
+  }
+
+  const supplied = Buffer.from(signature, 'base64');
+  if (supplied.length !== 32 || supplied.toString('base64') !== signature) {
+    return { ok: false, reason: 'malformed_signature' };
+  }
+
+  const expected = createHmac('sha256', input.secret).update(input.rawBody).digest();
+  if (!safeEqual(expected, supplied)) {
+    return { ok: false, reason: 'invalid_signature' };
+  }
+
+  return {
+    ok: true,
+    eventId: getHeaderValue(input.headers, 'x-shopify-webhook-id') ?? null,
+  };
+}
+
+function getHeaderValue(
+  headers: VerifyInput['headers'],
+  name: string,
+): string | undefined {
+  const matches = Object.entries(headers).filter(([headerName]) => headerName.toLowerCase() === name);
+  if (matches.length !== 1) {
+    return undefined;
+  }
+
+  const value = matches[0]?.[1];
+  return typeof value === 'string' && value.length > 0 ? value : undefined;
+}

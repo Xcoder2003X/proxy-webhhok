@@ -1,0 +1,20 @@
+services:
+  db:
+    container_name: webhook_shield_postgres
+    image: postgres:16
+    environment:
+      POSTGRES_USER: webhook_shield
+      POSTGRES_PASSWORD: webhook_shield
+      POSTGRES_DB: webhook_shield
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U webhook_shield -d webhook_shield"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_data:
